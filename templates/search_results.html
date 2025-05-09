@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"> {# Content starts directly, container is from base.html #}
+      <h4 class="mb-0">Search Results for: <span class="fw-normal fst-italic">"{{ query |e }}"</span></h4>
+      {% if entries %}<span class="text-muted small">{{ entries|length }} result(s) found</span>{% endif %}
+    </div>
+
+    <div id="filterPanel" class="mb-4"> <!-- display:none is in CSS, toggled by JS -->
+        <h5><i class="bi bi-funnel-fill"></i> Advanced Filters</h5>
+        <form>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="dateRange" class="form-label">Date Range</label>
+                        <input type="text" class="form-control form-control-sm" id="dateRange" placeholder="e.g., Last 7 days, Custom">
+                        <!-- Consider using a date range picker library here -->
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="applicationFilter" class="form-label">Application</label>
+                        <select class="form-select form-select-sm" id="applicationFilter">
+                            <option selected>All Applications</option>
+                            <option>Chrome</option>
+                            <option>VS Code</option>
+                            <option>Explorer</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary btn-sm">Apply Filters</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="hideFiltersBtnInsidePanel">Hide Filters</button>
+            </div>
+        </form>
+        <hr class="my-4">
+    </div>
+
+
+    {% if entries %}
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4"> {# Responsive grid with gutters #}
+        {% for entry in entries %}
+            <div class="col d-flex align-items-stretch"> 
+                <div class="eidon-card w-100">
+<button type="button" class="eidon-card-image-link btn p-0" data-bs-toggle="modal" data-bs-target="#modal-{{ entry.id }}" aria-label="View screenshot {{ entry.id }}">
+                        <img src="/screenshots_file/{{ entry.filename |e }}"
+                             alt="Screenshot thumbnail for {{ entry.timestamp | timestamp_to_human_readable |e }}"
+                             class="eidon-card-img" loading="lazy">
+                    </button>
+                    <div class="card-body">
+                        <div class="card-meta-info">
+                            <span title="{{ entry.app |e if entry.app else 'Unknown App' }}" class="d-flex align-items-center gap-1">
+                              {% if entry.app_icon_url %}
+                                <img src="{{ entry.app_icon_url |e }}" alt="App icon" class="app-icon" style="width: 16px; height: 16px; object-fit: contain;">
+                              {% else %}
+                                <i class="bi bi-app-indicator app-icon"></i>
+                              {% endif %}
+                              {{ (entry.app if entry.app else "Unknown") | truncate(20, True) |e }}
+                            </span>
+                            <span class="float-end">{{ entry.timestamp | timestamp_to_short_format }}</span>
+                        </div>
+                        {% if entry.title %}
+                            <h6 class="card-title eidon-card-title clamp-2-lines" title="{{ entry.title |e }}">
+                                {{ entry.title |e }}
+                            </h6>
+                        {% endif %}
+                        {% if entry.page_url %}
+                            <p class="card-text eidon-card-url mt-auto">
+                                <a href="{{ entry.page_url |e }}" target="_blank" title="{{ entry.page_url |e }}">
+                                    <i class="bi bi-link-45deg"></i> {{ entry.page_url | truncate(35, True) |e }}
+                                </a>
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+        {% endfor %}
+    </div>
+
+    {# Render modals separately for all entries #}
+    {% for entry in entries %}
+      <div class="modal fade" id="modal-{{ entry.id }}" tabindex="-1" aria-labelledby="modalLabel-{{ entry.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-xl-custom" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="modalLabel-{{ entry.id }}">{{ entry.timestamp | timestamp_to_human_readable |e }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body modal-body-fullscreen text-center">
+              <img src="/screenshots_file/{{ entry.filename |e }}" alt="Full screenshot for {{ entry.timestamp | timestamp_to_human_readable |e }}" loading="lazy">
+            </div>
+            <div class="modal-footer metadata-footer">
+              <div>
+                <p>
+                  <strong><i class="bi bi-app"></i> App:</strong>
+                  {% if entry.app_icon_url %}
+                    <img src="{{ entry.app_icon_url |e }}" alt="App icon" class="app-icon" style="width: 16px; height: 16px; object-fit: contain; margin-left: 4px; margin-right: 4px;">
+                  {% endif %}
+                  {{ entry.app |e if entry.app else "N/A" }}
+                </p>
+                {% if entry.title %}<p><strong><i class="bi bi-card-text"></i> Title:</strong> {{ entry.title |e }}</p>{% endif %}
+                {% if entry.page_url %}<p><strong><i class="bi bi-link-45deg"></i> URL:</strong> <a href="{{ entry.page_url |e }}" target="_blank">{{ entry.page_url |e }}</a></p>{% endif %}
+                {% if entry.text %}
+                <p class="mt-2 mb-1"><strong><i class="bi bi-textarea-t"></i> Extracted Text (Preview):</strong></p>
+                <div class="extracted-text-preview">
+                  {{ entry.text[:500] | nl2br }}{% if entry.text|length > 500 %}... (truncated){% endif %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% else %}
+    <div class="alert alert-warning alert-modern" role="alert">
+        <h5 class="alert-heading"><i class="bi bi-emoji-frown"></i> No Results Found</h5>
+        <p>We couldn't find any entries matching your query: <strong>"{{ query |e }}"</strong>.</p>
+        <hr class="my-3">
+        <p class="mb-0">Try different keywords, check for typos, or broaden your search. If filters are active, try adjusting them.</p>
+    </div>
+    {% endif %}
+{% endblock %}

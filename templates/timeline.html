@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block content %}
+{% if timestamps|length > 0 %} {# Content starts directly, container is from base.html #}
+  <div class="slider-container">
+    <input type="range" class="slider custom-range" id="discreteSlider" min="0" max="{{timestamps|length - 1}}" step="1" value="{{timestamps|length - 1}}">
+    <div class="slider-value" id="sliderValue">{{timestamps[0] | timestamp_to_human_readable if timestamps else 'No data' }}</div>
+  </div>
+  <div class="image-container">
+    <img id="timestampImage" src="{{ initial_img_src }}" alt="{{ initial_alt_text }}" class="img-fluid rounded shadow-sm">
+    <div id="imageMetadata" class="mt-3 text-muted" style="font-size: 0.9em;">
+      {{ initial_metadata_html | safe }}
+    </div>
+  </div>
+  <script>
+    const timestamps = {{ timestamps|tojson }}; // Timestamps are DESC (newest first)
+    console.log("Timeline JS: Timestamps array:", timestamps);
+    const slider = document.getElementById('discreteSlider');
+    const sliderValueDisplay = document.getElementById('sliderValue');
+    const timestampImage = document.getElementById('timestampImage');
+    const imageMetadataDiv = document.getElementById('imageMetadata');
+
+    console.log("Timeline JS: Initial timestamps array:", timestamps);
+
+    function formatTimestampShort(timestamp) {
+      const now = Date.now();
+      const then = timestamp * 1000;
+      const diffSeconds = Math.floor((now - then) / 1000);
+      const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+      if (diffSeconds < 60) return 'Just now';
+      if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)} minutes ago`;
+      if (diffSeconds < 86400) return `Today at ${new Date(then).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      if (diffSeconds < 172800) return `Yesterday at ${new Date(then).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      return new Date(then).toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+             ' at ' + new Date(then).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function updateImageAndMetadata(timestamp) {
+      console.log("Timeline JS: updateImageAndMetadata called for timestamp:", timestamp);
+      sliderValueDisplay.textContent = formatTimestampShort(timestamp);
+      
+      fetch(`/entry_details/${timestamp}`)
+        .then(response => {
+          console.log("Timeline JS: Fetch response status:", response.status, "for timestamp:", timestamp);
+          if (!response.ok) {
+            // Attempt to get text body for more detailed error
+            return response.text().then(text => {
+              console.error(`Timeline JS: HTTP error! status: ${response.status}, body: ${text}`);
+              throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log("Timeline JS: Received data from /entry_details:", data);
+          if (data && !data.error) {
+            let metadataHtml = '';
+            if (data.app) metadataHtml += `<div><strong>App:</strong> ${data.app}</div>`;
+            if (data.title) metadataHtml += `<div><strong>Title:</strong> ${data.title}</div>`;
+            if (data.page_url) metadataHtml += `<div><strong>URL:</strong> <a href="${data.page_url}" target="_blank">${data.page_url}</a></div>`;
+            if(!metadataHtml) metadataHtml = "<small>No specific details for this entry.</small>";
+            console.log("Timeline JS: Metadata HTML:", metadataHtml);
+            imageMetadataDiv.innerHTML = metadataHtml;
+
+            if (data.filename) {
+               console.log("Timeline JS: Setting image src to:", `/screenshots_file/${data.filename}`);
+               timestampImage.src = `/screenshots_file/${data.filename}`;
+               timestampImage.alt = `Screenshot for ${data.timestamp_hr}`;
+            } else {
+              console.error('Timeline JS: Filename missing in entry_details response for timestamp:', timestamp, data);
+              timestampImage.src = ''; // Or a placeholder image
+              timestampImage.alt = 'Image data unavailable (filename missing)';
+              imageMetadataDiv.innerHTML += '<div class="text-danger mt-1"><small>Error: Image filename not found.</small></div>';
+            }
+          } else {
+            let errorMsg = data && data.error ? data.error : "Unknown error loading metadata";
+            console.error('Timeline JS: Error in data from /entry_details:', errorMsg, data);
+            imageMetadataDiv.innerHTML = `<small class="text-danger">Error loading metadata: ${errorMsg}</small>`;
+            timestampImage.src = '';
+            timestampImage.alt = 'Image unavailable due to metadata error';
+          }
+        })
+        .catch(error => {
+          console.error('Timeline JS: Error fetching or processing metadata for image update:', error);
+          imageMetadataDiv.innerHTML = '<small class="text-danger">Error loading metadata (fetch/processing failed). Check console.</small>';
+          timestampImage.src = '';
+          timestampImage.alt = 'Image unavailable due to fetch error. Check console.';
+        });
+    }
+
+    slider.addEventListener('input', function() {
+      console.log("Timeline JS: Slider input event. Raw value:", slider.value);
+      const sliderIntValue = parseInt(slider.value);
+      const targetTimestampIndex = timestamps.length - 1 - sliderIntValue;
+      console.log("Timeline JS: Slider value updated. Calculated targetTimestampIndex:", targetTimestampIndex);
+
+      if (targetTimestampIndex < 0 || targetTimestampIndex >= timestamps.length || typeof timestamps[targetTimestampIndex] === 'undefined') {
+          console.error("Timeline JS: Slider event - Invalid targetTimestampIndex or timestamp undefined. Index:", targetTimestampIndex, "Slider value:", sliderIntValue, "Timestamps array length:", timestamps.length);
+          sliderValueDisplay.textContent = "Error: Invalid data for slider position";
+          imageMetadataDiv.innerHTML = "<small class='text-danger'>Cannot load data for this slider position (index out of bounds).</small>";
+          timestampImage.src = '';
+          timestampImage.alt = 'Invalid data for slider position';
+          return; 
+      }
+      
+      const timestamp = timestamps[targetTimestampIndex];
+      console.log("Timeline JS: Timestamp to fetch:", timestamp);
+      updateImageAndMetadata(timestamp);
+    });
+
+    // Initial state is set by Jinja.
+    // If you want to ensure JS consistency even for the first load (e.g., date format), you could uncomment this,
+    // but it might cause a quick flash or double load if Jinja already populated it well.
+    // if (timestamps.length > 0) {
+    //    const initialSliderValue = parseInt(slider.value);
+    //    const initialIndex = timestamps.length - 1 - initialSliderValue;
+    //    if (initialIndex >= 0 && initialIndex < timestamps.length) {
+    //        // updateImageAndMetadata(timestamps[initialIndex]); // This would re-fetch the first item.
+    //    }
+    // }
+  </script>
+{% else %}
+  <div class="alert alert-info alert-modern" role="alert">
+      <h5 class="alert-heading"><i class="bi bi-camera-video"></i> Nothing Recorded Yet</h5>
+      <p>eidon is actively capturing screenshots in the background. Your digital history will appear here soon.</p>
+      <hr>
+      <p class="mb-0">Check back in a few moments!</p>
+  </div>
+{% endif %}
+{% endblock %}

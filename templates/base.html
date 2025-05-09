@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>eidon</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <!-- Bootstrap Icons CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Google Font (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Your custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- Command Palette - Initially Hidden -->
+<div class="command-palette-container" id="commandPalette" role="dialog" aria-modal="true" aria-labelledby="commandPaletteTitle">
+  <div class="command-palette-content">
+    <h5 id="commandPaletteTitle" class="visually-hidden">Search and Command Palette</h5>
+    <button type="button" class="btn-close palette-close-btn" aria-label="Close" id="closeCommandPalette"></button>
+
+    <!-- 1. Search Input (Primary Focus) -->
+    <form class="d-flex search-form-wrapper" action="/search" method="get" id="commandSearchForm">
+      <input class="form-control search-input" type="search" name="q" placeholder="Search your history (Cmd/Ctrl+K to close)" aria-label="Search" id="commandSearchInput" value="{{ request.args.get('q', '') }}">
+      <button id="commandSearchClearBtn" class="search-clear-btn" type="button" aria-label="Clear search" style="display: none;">
+          <i class="bi bi-x-lg"></i>
+      </button>
+      <button class="btn btn-primary search-button" type="submit">
+        <i class="bi bi-search"></i>
+      </button>
+    </form>
+
+    <!-- 2. Other Navigational Links/Actions -->
+    <div class="palette-actions mt-3">
+        <a href="/" class="btn btn-outline-secondary btn-sm palette-action-btn" id="paletteTimelineLink">
+            <i class="bi bi-house-door-fill"></i> Timeline
+        </a>
+        <button id="paletteThemeToggle" class="btn btn-outline-secondary btn-sm palette-action-btn" title="Toggle theme" type="button">
+          <i class="bi bi-adjust"></i> 
+          <span class="button-text">Theme</span>
+        </button>
+        <button type="button" id="paletteCaptureToggle" class="btn btn-outline-secondary btn-sm palette-action-btn" title="Toggle Capture">
+          <i class="bi bi-pause-circle-fill"></i> 
+          <span class="button-text">Pause</span>
+        </button>
+        <!-- Filter button is context-dependent on search page, less suitable for global palette -->
+        <!-- If you want it, it would trigger the filter panel on /search -->
+    </div>
+  </div>
+</div>
+
+<!-- Main Content Area -->
+<!-- The message to press Cmd/Ctrl+K can be put here or elsewhere as a hint -->
+<div class="container-fluid p-0" id="access-palette-hint-container">
+    <div class="text-center py-2 small text-muted text-secondary"  id="access-palette-hint" style="background-color: rgba(var(--light-gray-rgb), 0.5); border-bottom: 1px solid var(--input-border-color);">
+      <a href="http://127.0.0.1:8082/">
+        <img src="{{ url_for('static', filename='images/eidon_logo.png') }}" alt="Eidon Logo" class="palette-hint-logo">
+      </a>
+        <span>Press <kbd class="me-1">Cmd</kbd>/<kbd class="me-1">Ctrl</kbd>+<kbd class="me-1">K</kbd> to search or navigate.</span>
+    </div>
+</div>
+
+<div class="container mt-4 mb-4" id="mainContent">
+  {% block content %}
+  {# Content from child templates will be rendered here #}
+  {% endblock %}
+</div>
+
+  <!-- Bootstrap 5 JS Bundle (includes Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  <!-- Your custom JavaScript -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
